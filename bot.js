@@ -10,6 +10,7 @@ async function selectPriceAndBuy(page) {
         await page.waitForSelector('.ticket-price-btn', { timeout: 10000 });
         const radioInput = await option.$('.ticket-price-btn');
         const label = await option.$('label');
+
         if (!label || !radioInput) {
             continue;
         }
@@ -18,38 +19,44 @@ async function selectPriceAndBuy(page) {
         const soldOut = await label.$('.price-limited span[data-i18n="status-title-soldout"]')
             .then(el => !!el)
             .catch(() => false);
+        if (soldOut) {
+            continue
+        }
+
+        // Check if the current ticket price is for wheelchair seats
+        const degreeText = await label.evaluate(el => el.innerText);
+        if (degreeText.includes('輪椅') || degreeText.includes("轮椅") || degreeText.includes("Wheelchair")) {
+            continue;
+        }
 
         // Check if temporarily out of tickets
         // const tempNoSeat = await label.$('span[data-i18n="HOLD_SEAT_PRICEZONE_TEMP_NO_SEAT"]')
         //     .then(el => !!el)
         //     .catch(() => false);
 
-        // Check if the current ticket price is available for purchase
-        if (!soldOut) {
-            // Use evaluate to ensure clicking within the page context
-            await page.evaluate(el => el.click(), radioInput);
-            // Add a short delay to ensure the click takes effect
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Verify if it's really selected
-            const isChecked = await page.evaluate(el => el.checked, radioInput);
-            if (!isChecked) {
-                continue;
-            }
+        // Use evaluate to ensure clicking within the page context
+        await page.evaluate(el => el.click(), radioInput);
+        // Add a short delay to ensure the click takes effect
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Verify if it's really selected
+        const isChecked = await page.evaluate(el => el.checked, radioInput);
+        if (!isChecked) {
+            continue;
+        }
 
-            // Select quantity
-            await page.waitForSelector('#ticketType0');
-            const buttons = await page.$$('#expressPurchaseBtn');
-            const availableQty = await page.$$eval('#ticketType0 option', opts =>
-                opts.map(o => o.value).filter(v => v && v !== '0').reverse()
-            );
+        // Select quantity
+        await page.waitForSelector('#ticketType0');
+        const buttons = await page.$$('#expressPurchaseBtn');
+        const availableQty = await page.$$eval('#ticketType0 option', opts =>
+            opts.map(o => o.value).filter(v => v && v !== '0').reverse()
+        );
 
-            for (const qty of availableQty) {
-                await page.select('#ticketType0', qty);
-                for (const btn of buttons) {
-                    const text = await btn.evaluate(el => el.innerText);
-                    if (text.includes('快速購票') || text.includes('確定') || text.includes('确定') || text.includes('Express') || text.includes('Confirm') || text.includes("快速购票")) {
-                        await page.evaluate(el => el.click(), btn);
-                    }
+        for (const qty of availableQty) {
+            await page.select('#ticketType0', qty);
+            for (const btn of buttons) {
+                const text = await btn.evaluate(el => el.innerText);
+                if (text.includes('快速購票') || text.includes('確定') || text.includes('确定') || text.includes('Express') || text.includes('Confirm') || text.includes("快速购票")) {
+                    await page.evaluate(el => el.click(), btn);
                 }
             }
         }
@@ -108,7 +115,7 @@ async function startBookingFlow() {
 }
 
 // 🕗 Set the time for automatic ticket grabbing, for example 8:00 AM
-const START_TIME = '15:00:00';
+const START_TIME = '12:27:00';
 
 // 🕒 Get the current time and calculate the difference with the target time
 function getTimeDiff(targetTime) {
