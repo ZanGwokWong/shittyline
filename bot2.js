@@ -1,5 +1,7 @@
 const puppeteer = require('puppeteer-core');
 
+const skipKeywords = ['輪椅', '轮椅', 'Wheelchair', 'Barrier', "无障碍", "無障礙", '視線', "视线", "Restricted"];
+
 async function selectPriceAndBuy(page) {
     await page.waitForSelector('.price', { timeout: 10000 });
     await page.waitForSelector('.form-check', { timeout: 10000 });
@@ -23,16 +25,11 @@ async function selectPriceAndBuy(page) {
             continue
         }
 
-        // Check if the current ticket price is for wheelchair seats
         const degreeText = await label.evaluate(el => el.innerText);
-        if (degreeText.includes('輪椅') || degreeText.includes("轮椅") || degreeText.includes("Wheelchair")) {
+        const shouldSkip = skipKeywords.some(keyword => degreeText.includes(keyword));
+        if (shouldSkip) {
             continue;
         }
-
-        // Check if temporarily out of tickets
-        // const tempNoSeat = await label.$('span[data-i18n="HOLD_SEAT_PRICEZONE_TEMP_NO_SEAT"]')
-        //     .then(el => !!el)
-        //     .catch(() => false);
 
         // Use evaluate to ensure clicking within the page context
         await page.evaluate(el => el.click(), radioInput);
@@ -68,6 +65,7 @@ async function startBookingFlow() {
     const browser = await puppeteer.connect({ browserURL });
     const pages = await browser.pages();
     const page = pages.find(p => p.url().includes('perfId=')) || pages[0];
+    await page.setViewport(null);
 
     // Date selector loop
     while (true) {
